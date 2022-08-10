@@ -1,28 +1,40 @@
-import { NearContract, NearBindgen, near, call, view, LookupMap, assert } from "near-sdk-js"
+import { NearContract, NearBindgen, near, call, view, LookupMap, assert, bytes } from "near-sdk-js"
 import { currentAccountId } from "near-sdk-js/lib/api";
 import { populateItemVector, TOTAL_PRIZES } from "./utils";
  
 const defaultArray = [0,0,0]
+const GAS_FOR_NFT_MINT = 40_000_000_000_000;
  
 @NearBindgen
 class ScavengerHunt extends NearContract {
    participants: LookupMap; // map string to vector
    validItems: LookupMap;
+   nftContractId: string;
+   seriesId: number;
   
-   constructor() {
+   constructor({
+        nftContractId,
+        seriesId
+   }:{
+        nftContractId: string,
+        seriesId: number
+   }) {
        super()
        this.participants = new LookupMap('ScavengerHunt-Participants-And-Items-Map')
  
        this.validItems = new LookupMap('ScavengerHunt-ValidItem-Map')
        this.validItems = populateItemVector(this.validItems)
+
+       this.nftContractId = nftContractId
+       this.seriesId = seriesId
    }
  
    default() {
-       return new ScavengerHunt()
+       return new ScavengerHunt({nftContractId:"", seriesId:0})
    }
 
    @view
-    verifyItemForUser({
+    checkIfUserCanRedeemItem({
         accountId,
         itemID
     }:{
@@ -86,6 +98,7 @@ class ScavengerHunt extends NearContract {
        let rewardPrize: boolean = false
        if(currScoreForUser === (TOTAL_PRIZES-1)){
             near.log(`The user is claiming their final item. Reward NFT will be issued soon.`)
+            rewardPrize = true
        }
 
        let targetItemIdx: number = +this.validItems.get(itemID)
@@ -98,7 +111,17 @@ class ScavengerHunt extends NearContract {
        }
 
        if(rewardPrize){
-            near.log(`CROSS-CONTRACT CALL GOES HERE`)
+        const promise = near.promiseBatchCreate(this.nftContractId);
+        near.promiseBatchActionFunctionCall(
+            promise, 
+            "nft_mint", 
+            bytes(JSON.stringify({ 
+                id: this.seriesId,
+                receiver_id: accountId
+            })), 
+            0, // no deposit 
+            GAS_FOR_NFT_MINT
+        );
        }
  
        return true
