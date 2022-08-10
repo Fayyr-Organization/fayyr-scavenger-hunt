@@ -1,37 +1,54 @@
-import { NearContract, NearBindgen, near, call, view } from "near-sdk-js"
+import { NearContract, NearBindgen, near, call, view, LookupMap, assert } from "near-sdk-js"
+import { populateItemVector } from "./utils";
 
-const SCORE_THRESHOLD = 10;
+const defaultArray = [0,0,0]
 
 @NearBindgen
 class ScavengerHunt extends NearContract {
-    score: number;
-    accountOwner: string;
+    participants: LookupMap; // map string to vector
+    validItems: LookupMap;
     
-    constructor(accountOwner: string) {
+    constructor() {
         super()
-        this.accountOwner = accountOwner; //is there a way to assert this is valid
-        this.score = 0;
+        this.participants = new LookupMap('ScavengerHunt-Participants-And-Items-Map')
+
+        this.validItems = new LookupMap('ScavengerHunt-ValidItem-Map')
+        this.validItems = populateItemVector(this.validItems)
+    }
+
+    default() {
+        return new ScavengerHunt()
     }
 
     @call
-    increment() {
-        let prevScore = this.score;
-        this.score += 1;
-        near.log(`Congrats! ${this.accountOwner} has located one item. Incrementing score from ${prevScore} to ${this.score}`)
-        near.log(`One moment. Checking if ${this.accountOwner} is eligible for their rewards...`)
+    logItemFoundForUser({
+        accountId,
+        itemID
+    }:{
+        accountId: string,
+        itemID: string
+    }
+    ){
+        let currentUserItemTracker: number[] = []
+        if(!this.participants.containsKey(accountId)){
+            this.participants.set(accountId, defaultArray)
+        } 
+        
+        currentUserItemTracker = this.participants.get(accountId)
+
+        assert(this.participants.containsKey(itemID), "Not a valid itemID.")
+        let targetItemIdx = this.validItems.get(itemID)
+        if (currentUserItemTracker[targetItemIdx] == 1){
+            near.log(`ERROR. This item has already been found by this user.`)
+            return false
+        } else {
+            currentUserItemTracker[targetItemIdx] = 1
+            this.participants.set(accountId, currentUserItemTracker)
+        } 
+        
+
+
+        return true
     }
 
-    @call
-    checkPrizeEligibility(){
-        let eligibility = this.score > SCORE_THRESHOLD
-        near.log(`Is ${this.accountOwner} eligible for a prize? ${eligibility}`)
-        return eligibility
-    }
-
-    @view
-    getScore(){
-        return this.score
-    }
-
-    // METHOD HERE FOR PERFORMING CROSS CONTRACT CALL TO MINT AN NFT????
 }
