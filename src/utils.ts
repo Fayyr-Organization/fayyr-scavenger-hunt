@@ -1,11 +1,11 @@
 import { LookupMap } from "near-sdk-js";
 
-export const SCORE_THRESHOLD = 3;
+export const TOTAL_PRIZES = 3;
 
 export function populateItemVector(map: LookupMap){
     let allowList: string[] = ["test0","test1","test2"];
 
-    for(let i=0; i<SCORE_THRESHOLD; i++){
+    for(let i=0; i<TOTAL_PRIZES; i++){
         map.set(allowList[i], i)
     }
 
