@@ -29,6 +29,9 @@ class ScavengerHunt extends NearContract {
         itemID: string
     }
     ){
+        const predecessorAccountId = near.predecessorAccountId();
+        assert(predecessorAccountId === near.currentAccountId(), "Only our account can approve scavenger hunt finds.");
+
         let currentUserItemTracker: number[] = []
         if(!this.participants.containsKey(accountId)){
             this.participants.set(accountId, defaultArray)
@@ -38,15 +41,13 @@ class ScavengerHunt extends NearContract {
 
         assert(this.participants.containsKey(itemID), "Not a valid itemID.")
         let targetItemIdx = this.validItems.get(itemID)
-        if (currentUserItemTracker[targetItemIdx] == 1){
+        if (currentUserItemTracker[targetItemIdx] === 1){
             near.log(`ERROR. This item has already been found by this user.`)
             return false
         } else {
             currentUserItemTracker[targetItemIdx] = 1
             this.participants.set(accountId, currentUserItemTracker)
-        } 
-        
-
+        }
 
         return true
     }
