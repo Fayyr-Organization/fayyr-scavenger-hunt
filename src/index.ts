@@ -62,7 +62,7 @@ class ScavengerHunt extends NearContract {
     }
 
    @call
-   logItemFoundForUser({
+   logItemAndClaim({
        accountId,
        itemID
    }:{
@@ -78,8 +78,16 @@ class ScavengerHunt extends NearContract {
        }
       
        let currentUserItemTracker = this.participants.get(accountId)
- 
+
+       let currScoreForUser: number = this.checkUserCurrentScore({accountId: accountId}) 
+       assert(currScoreForUser < TOTAL_PRIZES, "This user cannot reclaim their NFT prize.")
+       
        assert(this.validItems.containsKey(itemID), "Not a valid itemID.")
+       let rewardPrize: boolean = false
+       if(currScoreForUser === (TOTAL_PRIZES-1)){
+            near.log(`The user is claiming their final item. Reward NFT will be issued soon.`)
+       }
+
        let targetItemIdx: number = +this.validItems.get(itemID)
        if (currentUserItemTracker[targetItemIdx] === 1){
            near.log(`ERROR. This item has already been found by this user.`)
@@ -88,25 +96,12 @@ class ScavengerHunt extends NearContract {
            currentUserItemTracker[targetItemIdx] = 1
            this.participants.set(accountId, currentUserItemTracker)
        }
+
+       if(rewardPrize){
+            near.log(`CROSS-CONTRACT CALL GOES HERE`)
+       }
  
        return true
    }
-
-   @call
-   checkPrizeEligibility({
-        accountId
-    }:{
-        accountId: string
-    }
-    ){
-        const predecessorAccountId = near.predecessorAccountId();
-        assert(predecessorAccountId === near.currentAccountId(), "Only our account can approve scavenger hunt finds.");
-
-        let currScoreForUser: number = this.checkUserCurrentScore({accountId: accountId}) 
-        if(currScoreForUser === TOTAL_PRIZES){
-            near.log(`CROSS-CONTRACT CALL GOES HERE`)
-        }
-
-    }
  
 }
